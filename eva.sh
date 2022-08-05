@@ -6,9 +6,9 @@ mandatory=push_swap
 bonus=checker
 
 #Colors
-green='\e\033[0;32m'
-white='\e\033[0m'
-red='\e\033[1;31m'
+green='\033[0;32m'
+white='\033[0m'
+red='\033[1;31m'
 
 #Internal Paths
 results=results
@@ -22,128 +22,131 @@ fi
 mkdir $results
 
 #Norm
-echo -e "STEP_0/: Checking Norm"
-if [[ $input == "y" ]]
+echo -e "STEP_0/5: Checking Norm"
+norminette $workdir > $results/norm
+check=$(grep "KO!" $results/norm)
+if [[ $check -ne "" ]]
 then
-	norminette $workdir > $results/norm
-	check=$(grep "KO!" $results/norm)
-	if [[ $check <> "" ]]
-	then
-		echo -e "$redKO. Normerror!$white"
-	else
-		echo -e "$greenOK."
-	fi
+	echo -e "$red KO. Normerror! $white"
+else
+	echo -e "$green OK.$white"
 fi
 
 #Compiling for Memorycheck
-echo -e "STEP_1/: Checking Memoryleaks."
-gcc -Wall -Wextra -Werror -fsanitize=address -I $(find $workdir -type f -name *.h) $(find $workdir -type f -name *.c) -o a.out
-if [[ ! -f a.out ]]
+echo -e "STEP_1/5: Checking Memoryleaks."
+mv $workdir/Makefile $workdir/mf
+< $workdir/mf sed 's/-Werror/-Werror -fsanitize=address -g /g' > $workdir/Makefile
+@make re -C $workdir
+mv $workdir/mf $workdir/Makefile
+if [[ ! -f $workdir/$mandatory ]]
 then
-	echo -e "$redError. Couldn't compile to check Memoryleaks!$white"
+	echo -e "$red Error. Couldn't compile to check Memoryleaks! $white"
 else
-	./a.out 3 9 2 7 0 -5 4 1 > $results/memory
+	./$workdir/$mandatory 3 9 2 7 0 -5 4 1 > $results/memory
 	check=$(grep "leaks" $results/memory)
-	if [[ $check <> "" ]]
+	if [[ $check -ne "" ]]
         then
-                echo "$redKO. Memoryleaks!$white"
+                echo "$red KO. Memoryleaks! $white"
         else
-		echo -e "$greenOK."
+		echo -e "$green OK. $white"
 	fi
 fi
 
 #Errorhandling
-echo -e "STEP_2/: Checking Errorhandlingcases with Error"
-make -C $workdir
+echo -e "STEP_2/5: Checking Errorhandlingcases with Error"
+@make re -C $workdir
 while read line
 do
-	./$mandatory $line >> $results/step2
+	./$workdir/$mandatory $line 2>&1>> $results/step2
 done < $tests/step2
 while read line
 do
-	if [[ $line <> "Error" ]]
+	if [[ $line -ne "Error" ]]
 	then
-		echo -e "$redErrorhandling wrong!$white"
+		echo -e "$red Errorhandling wrong! $white"
 	else
-		echo -e "$greenOK:"
+		echo -e "$green OK. $white"
 	fi
 done < $results/step2
 
 #Semivalide Arguments
-echo -e "STEP_3/: Checking Errorhandlingcases without Error"
+echo -e "STEP_3/5: Checking Errorhandlingcases without Error"
 while read line
 do
-        ./$mandatory $line >> $results/step3
+        ./$workdir/$mandatory $line 2>&1>> $results/step3
 done < $tests/step3
 while read line
 do
-        if [[ $line <> "" ]]
+        if [[ $line -ne "" ]]
         then
-                echo -e "$redErrorhandling wrong!$white"
+                echo -e "$red Errorhandling wrong! $white"
         else
-                echo -e "$greenOK:"
+                echo -e "$green OK. $white"
         fi
 done < $results/step3
 
 #Easy Stacks
-echo -e "STEP_4/: Checking Easy Stacks"
+echo -e "STEP_4/5: Checking Easy Stacks"
 if [[ ! -f checker_Mac ]]
 then
-	wget -q https://projects.intra.42.fr/uploads/document/document/9217/checker_Mac
+	curl -s https://projects.intra.42.fr/uploads/document/document/9217/checker_Mac --output checker_Mac
+	chmod 777 checker_Mac
 fi
 while read line
 do
-        ./$mandatory $line | ./checker_Mac $line >> $results/step4
+        ./$workdir/$mandatory $line | ./checker_Mac $line 2>&1>> $results/step4
 done < $tests/step4
 while read line
 do
-        if [[ $line <> "OK" ]]
+        if [[ $line -ne "OK" ]]
         then
-                echo -e "$redStacks are not sorted!$white"
+                echo -e "$red Stacks are not sorted! $white"
         else
-                echo -e "$greenOK:"
+                echo -e "$green OK. $white"
         fi
 done < $results/step4
+echo -e "-----"
 while read line
 do
-        ./$mandatory $line | wc -l >> $results/step4a
+        ./$workdir/$mandatory $line | wc -l | xargs >> $results/step4a
 done < $tests/step4
 while read line
 do
         if [[ $line -gt 3 ]]
         then
-                echo -e "$redToo much Steps for Easy Stacks!$white"
+                echo -e "$red Too much Steps for Easy Stacks! $white"
         else
-                echo -e "$greenOK:"
+                echo -e "$green OK. $white"
         fi
 done < $results/step4a
 
 #Easy Stacks
-echo -e "STEP_5/: Checking more Easy Stacks"
+echo -e "STEP_5/5: Checking more Easy Stacks"
 while read line
 do
-        ./$mandatory $line | ./checker_Mac $line >> $results/step5
+        ./$workdir/$mandatory $line | ./checker_Mac $line >> $results/step5
 done < $tests/step5
 while read line
 do
-        if [[ $line <> "OK" ]]
+        if [[ $line -ne "OK" ]]
         then
-                echo -e "$redStacks are not sorted!$white"
+                echo -e "$red Stacks are not sorted! $white"
         else
-                echo -e "$greenOK:"
+                echo -e "$green OK. $white"
         fi
 done < $results/step5
+echo -e "-----"
 while read line
 do
-        ./$mandatory $line | wc -l >> $results/step5a
+        ./$workdir/$mandatory $line | wc -l | xargs >> $results/step5a
 done < $tests/step5
 while read line
 do
         if [[ $line -gt 12 ]]
         then
-                echo -e "$redToo much Steps for Easy Stacks!$white"
+                echo -e "$red Too much Steps for Easy Stacks! $white"
         else
-                echo -e "$greenOK:"
+                echo -e "$green OK. $white"
         fi
 done < $results/step5a
 
